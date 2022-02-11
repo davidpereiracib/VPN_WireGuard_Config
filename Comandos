@@ -1,0 +1,139 @@
+Comandos Utilizados:
+(Ya sabes que el símbolo "$" quiere decir el prompt o símbolo de sistema; lo pongo como referencia para ti;  NO tienes que escribirlo)
+
+Si quieres conectarte a SSH  desde Windows:
+En una terminal de Powershell con elevación:
+Add-WindowsCapability -Online -Name OpenSSH.Client
+
+Crear Llaves SSH:
+$ ssh-keygen  -t rsa -b 4096  
+
+
+Comandos en el Servidor
+
+Actualizamos el Server:
+$ sudo apt get update && apt get upgrade
+
+Creamos un usuario que no sea root en el Servidor (Puede ser cualquier usuario)
+$ useradd -G sudo -m kali -s /bin/bash
+
+Configuramos el password:
+$ passwd kali
+
+En la máquina local copiamos las llaves ssh hacia el server
+1$ ssh-copy-id  kali@(Ip de tu Servidor)
+
+Asegurar el Acceso SSH
+$ nano /etc/ssh/sshd_config
+
+Parámetros: 
+Password No
+Root No
+
+Reiniciamos el servicio:
+$ systemctl restart sshd
+
+Logueamos
+
+Cambiar el Nombre del Servidor si quieres: 
+$ nano /etc/hostname
+$ reboot
+
+Verificar IP
+$ ip a
+$ ip link
+
+Instalar Wireguard
+$ sudo apt install wireguard
+
+Generar Llaves Pública y Privada de Wireguard
+$ wg genkey | tee privatekey | wg pubkey > publickey
+
+Revisar las llaves
+
+$ cat privatekey
+$ cat publickey
+
+Crear archivo de configuración de WireGuard
+nano /etc/wireguard/wg0.conf
+
+Contenido del archivo: (Modifícalo de acurdo a tu Servidor)
+
+[Interface]
+PrivateKey=aGFJNHleZ0sGNaxle3KTKUrv32BBZE8jBqa+U78DD3Y=
+Address=192.168.10.1/8
+SaveConfig=true
+PostUp=iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE;
+PostDown=iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE;
+ListenPort=51820
+
+[Peer]
+PublicKey = uvjRuuKUFHLWpLE8jcWHGLabXDQ0WAFVhHV6Ss9ErEA=
+AllowedIPs = 192.168.10.2/32
+Endpoint = 141.156.143.47:37833
+
+
+Iniciar la Interfase de WireGuard
+$ wg-quick up wg0
+
+Verificar:
+$ wg0
+
+Revisar las Interfases:
+$ ip link
+
+
+Vamos al Cliente (Kali)
+$ sudo apt install wireguard 
+
+Generamos llaves de WireGuard:
+$ wg genkey | tee privatekey | wg pubkey > publickey
+ 
+Crear archivo de configuración de WireGuard del Cliente
+nano /etc/wireguard/wg0.conf
+
+Contenido del archivo: (Modifícalo de acuerdo a tus nexesidades)
+
+[Interface]
+PrivateKey=8AJxX7fYXfwa7HLCnuMhMVY+3/vggOV9l2hn/x5QD08=
+Address=192.168.10.2/8
+SaveConfig=true
+ 
+[Peer]
+PublicKey=N5YF3g1ufd6vJz6Dra8nhhv51VeQtWR5pcCDy3ihdBc=
+Endpoint=194.195.208.238:51820
+AllowedIPs=0.0.0.0/0
+
+Iniciamos el servicio:
+$ wg-quick up wg0 
+
+Hacemos Ping a la IP Interna del Servidor (Ping a la Ip que hayas seleccionado)
+
+$ping 192.168.10.1
+
+No va a funcionar hacia afuera por el forwarding;
+Arreglamos:
+
+Temporal:
+echo 1 > /proc/sys/net/ipv4/ip_forward
+O:
+$ sudo sysctl -w net.ipv4.ip_forward=1
+
+
+Permanente el forwarding de paquetes:
+$ sudo nano /etc/sysctl.conf
+ net.ipv4.ip_forward=1
+
+Aplicar cambios sin reiniciar
+sysctl -p
+
+Para hacer persistente el Wireguard al inicio:
+
+$ sudo systemctl enable wg-quick@wg0
+Luego
+$ wg show
+
+
+Verificar tráfico con tcpdump en el servidor
+
+$ sudo tcpdump -envi wg0 host 8.8.8.8
